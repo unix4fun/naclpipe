@@ -49,7 +49,7 @@ func (c *cryptoPipe) Read(p []byte) (n int, err error) {
 		panic(err)
 	}
 
-	b := make([]byte, len(p))
+	b := make([]byte, len(p)+secretbox.Overhead)
 	n, err = c.rd.Read(b)
 	if err != nil {
 		return n, err
@@ -58,10 +58,10 @@ func (c *cryptoPipe) Read(p []byte) (n int, err error) {
 	pt, res := secretbox.Open(nil, b[:n], c.cntNonce, c.dKey)
 	if res == true {
 		copy(p, pt)
+		c.cnt++
 		return len(pt), nil
 	}
-	c.cnt++
-	return 0, errors.New("bleh")
+	return 0, errors.New("crypto error")
 }
 
 // SHA3 the counter use it as nonce
@@ -72,6 +72,7 @@ func (c *cryptoPipe) Write(p []byte) (n int, err error) {
 	}
 
 	ct := secretbox.Seal(nil, p, c.cntNonce, c.dKey)
+	//fmt.Fprintf(os.Stderr, "bleh READ cryptopipe[%d] seal %d bytes\n", c.cnt, len(p))
 	c.cnt++
 	return c.wr.Write(ct)
 }
@@ -142,7 +143,28 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		_, err = io.Copy(os.Stdout, crd)
+
+		buf := make([]byte, 32768)
+	DecryptLoop:
+		for {
+			n, err := crd.Read(buf)
+			switch err {
+			case io.EOF:
+				//fmt.Fprintf(os.Stderr, "err: %v io.EOF: %v\n", err, io.EOF)
+				break DecryptLoop
+			case nil:
+				//fmt.Fprintf(os.Stderr, "err: %v nil!!!\n", err)
+			default:
+				//fmt.Fprintf(os.Stderr, "err: %v\n", err)
+				panic(err)
+			}
+			_, err = os.Stdout.Write(buf[:n])
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		//_, err = io.Copy(os.Stdout, crd)
 		/* TODO: proper error mgmt
 		if err != nil {
 			panic(err)
@@ -154,11 +176,35 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		_, err = io.Copy(cwr, os.Stdin)
-		/* TODO: proper error mgmt
-		if err != nil {
-			panic(err)
+
+		buf := make([]byte, 32768)
+	CryptLoop:
+		for {
+			n, err := os.Stdin.Read(buf)
+			switch err {
+			case io.EOF:
+				//fmt.Fprintf(os.Stderr, "err: %v io.EOF: %v\n", err, io.EOF)
+				//_, err = cwr.Write(buf)
+				break CryptLoop
+			case nil:
+				//fmt.Fprintf(os.Stderr, "err: %v nil!!!\n", err)
+			default:
+				//fmt.Fprintf(os.Stderr, "err: %v\n", err)
+				panic(err)
+			} // end of Switch CryptoLoop
+
+			_, err = cwr.Write(buf[:n])
+			if err != nil {
+				panic(err)
+			}
 		}
+
+		/*
+			n, err := io.Copy(cwr, os.Stdin)
+			fmt.Printf("read: %d bytes\n", n)
+			if err != nil {
+				panic(err)
+			}
 		*/
 	}
 }
