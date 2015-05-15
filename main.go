@@ -72,7 +72,6 @@ func (c *cryptoPipe) Write(p []byte) (n int, err error) {
 	}
 
 	ct := secretbox.Seal(nil, p, c.cntNonce, c.dKey)
-	//fmt.Fprintf(os.Stderr, "bleh READ cryptopipe[%d] seal %d bytes\n", c.cnt, len(p))
 	c.cnt++
 	return c.wr.Write(ct)
 }
