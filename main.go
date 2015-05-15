@@ -150,26 +150,19 @@ func main() {
 			n, err := crd.Read(buf)
 			switch err {
 			case io.EOF:
-				//fmt.Fprintf(os.Stderr, "err: %v io.EOF: %v\n", err, io.EOF)
 				break DecryptLoop
 			case nil:
-				//fmt.Fprintf(os.Stderr, "err: %v nil!!!\n", err)
+				break
 			default:
-				//fmt.Fprintf(os.Stderr, "err: %v\n", err)
 				panic(err)
-			}
+			} // end of Switch
+
 			_, err = os.Stdout.Write(buf[:n])
 			if err != nil {
 				panic(err)
 			}
-		}
+		} // End of DecryptLoop
 
-		//_, err = io.Copy(os.Stdout, crd)
-		/* TODO: proper error mgmt
-		if err != nil {
-			panic(err)
-		}
-		*/
 	default:
 		// Encrypt
 		cwr, err := NewCryptoWriter(os.Stdout, *keyFlag)
@@ -183,28 +176,18 @@ func main() {
 			n, err := os.Stdin.Read(buf)
 			switch err {
 			case io.EOF:
-				//fmt.Fprintf(os.Stderr, "err: %v io.EOF: %v\n", err, io.EOF)
-				//_, err = cwr.Write(buf)
 				break CryptLoop
 			case nil:
-				//fmt.Fprintf(os.Stderr, "err: %v nil!!!\n", err)
+				break
 			default:
-				//fmt.Fprintf(os.Stderr, "err: %v\n", err)
 				panic(err)
-			} // end of Switch CryptoLoop
+			} // end of Switch
 
 			_, err = cwr.Write(buf[:n])
 			if err != nil {
 				panic(err)
 			}
-		}
+		} // End of CryptLoop
 
-		/*
-			n, err := io.Copy(cwr, os.Stdin)
-			fmt.Printf("read: %d bytes\n", n)
-			if err != nil {
-				panic(err)
-			}
-		*/
 	}
 }
