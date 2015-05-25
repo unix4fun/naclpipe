@@ -113,7 +113,7 @@ func NewCryptoReader(r io.Reader, strKey string) (c *cryptoPipe, err error) {
 }
 
 func banner(cmd string) {
-	fmt.Printf("Nacl Go Pipe ¦ A simple (lame?) encryption pipe\n")
+	fmt.Printf("Nacl Go Pipe v%s¦ A simple (lame?) encryption pipe\n", npVersion)
 	fmt.Printf("using Salsa20/Poly1305 AEAD") //or AES256-GCM coming soon
 }
 
