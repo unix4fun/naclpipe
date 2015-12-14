@@ -32,18 +32,15 @@ func NewCryptoReader(r io.Reader, strKey string) (c *CryptoPipe, err error) {
 
 // Read will read the amount of
 func (c *CryptoPipe) Read(p []byte) (n int, err error) {
-	//fmt.Fprintf(os.Stderr, "CRYPTO READ: %d\n", len(p))
 
 	err = c.shazam()
 	if err != nil {
 		panic(err)
 	}
 
-	//fmt.Fprintf(os.Stderr, "CRYPTO READ PT: %d - %d\n", len(p), secretbox.Overhead)
 	b := make([]byte, len(p))
 	//n, err = c.rd.Read(b)
 	n, err = io.ReadFull(c.rd, b)
-	//fmt.Fprintf(os.Stderr, "(%v) BOX HEX[%d/%d]: %s\n", err, len(b), n, hex.EncodeToString(b)[:32])
 	if err != nil && err != io.ErrUnexpectedEOF {
 		return n, err
 	}

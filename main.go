@@ -13,6 +13,10 @@ import (
 	"os"
 )
 
+const (
+	defaultBufferSize = 32768
+)
+
 // CryptoPipe define the structure that handle the crypto pipe operation
 // it also holds all internal datas related to the running pipe.
 type CryptoPipe struct {
@@ -77,6 +81,9 @@ func main() {
 	// blocksize
 	stdinFileStruct, _ := os.Stdin.Stat()
 	bufSize := stdinFileStruct.Size()
+	if bufSize == 0 {
+		bufSize = defaultBufferSize
+	}
 
 	switch *decFlag {
 	case true:
@@ -117,6 +124,7 @@ func main() {
 		for {
 			//n, err := os.Stdin.Read(buf)
 			n, err := io.ReadFull(os.Stdin, buf)
+			//fmt.Printf("READ: %d / %v\n", n, err)
 			switch err {
 			case io.EOF:
 				break CryptLoop
