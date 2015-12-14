@@ -5,33 +5,34 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"golang.org/x/crypto/nacl/secretbox"
-	"golang.org/x/crypto/scrypt"
 	"golang.org/x/crypto/sha3"
 	"io"
 	"os"
 )
 
-type cryptoPipe struct {
-	dKey     *[32]byte // derived key
-	cntNonce *[24]byte
-	cnt      uint64 // nonce counter
-	wr       io.Writer
-	rd       io.Reader
+// CryptoPipe define the structure that handle the crypto pipe operation
+// it also holds all internal datas related to the running pipe.
+type CryptoPipe struct {
+	dKey      *[32]byte // derived key
+	cntNonce  *[24]byte
+	cnt       uint64 // nonce counter
+	wr        io.Writer
+	rd        io.Reader
+	stdioSize uint32
 }
 
-func (c *cryptoPipe) init() {
+func (c *CryptoPipe) init() {
 	c.cntNonce = new([24]byte)
 	c.dKey = new([32]byte)
 	c.cnt = 0
 }
 
-// do SHA3 on the counter and update the cndNonce value...
+// shazam function does an SHA3 on the counter and update the counter/Nonce value generated.
 // stream operate in blocks, then each blocks will be encrypted with its nonce.
-func (c *cryptoPipe) shazam() (err error) {
+func (c *CryptoPipe) shazam() (err error) {
 	sha3hash := sha3.New256()
 	countstr := fmt.Sprintf("%d", c.cnt)
 	_, err = sha3hash.Write([]byte(countstr))
@@ -43,78 +44,15 @@ func (c *cryptoPipe) shazam() (err error) {
 	return nil
 }
 
-func (c *cryptoPipe) Read(p []byte) (n int, err error) {
-	err = c.shazam()
-	if err != nil {
-		panic(err)
-	}
-
-	b := make([]byte, len(p)+secretbox.Overhead)
-	n, err = c.rd.Read(b)
-	if err != nil {
-		return n, err
-	}
-
-	pt, res := secretbox.Open(nil, b[:n], c.cntNonce, c.dKey)
-	if res == true {
-		copy(p, pt)
-		c.cnt++
-		return len(pt), nil
-	}
-	return 0, errors.New("crypto error")
-}
-
-// SHA3 the counter use it as nonce
-func (c *cryptoPipe) Write(p []byte) (n int, err error) {
-	err = c.shazam()
-	if err != nil {
-		panic(err)
-	}
-
-	ct := secretbox.Seal(nil, p, c.cntNonce, c.dKey)
-	c.cnt++
-	return c.wr.Write(ct)
-}
-
-func NewCryptoWriter(w io.Writer, strKey string) (c *cryptoPipe, err error) {
-	salt := make([]byte, 16)
-	c = new(cryptoPipe)
-
-	/* init values */
-	c.init()
-
-	/* let's derive a key */
-	dKey, err := scrypt.Key([]byte(strKey), salt, 16384, 8, 1, 32)
-	if err != nil {
-		return nil, err
-	}
-
-	copy(c.dKey[:], dKey)
-	c.wr = w
-	return
-}
-
-func NewCryptoReader(r io.Reader, strKey string) (c *cryptoPipe, err error) {
-	salt := make([]byte, 16)
-	c = new(cryptoPipe)
-
-	/* init values */
-	c.init()
-
-	/* let's derive a key */
-	dKey, err := scrypt.Key([]byte(strKey), salt, 16384, 8, 1, 32)
-	if err != nil {
-		return nil, err
-	}
-
-	copy(c.dKey[:], dKey)
-	c.rd = r
-	return
-}
-
 func banner(cmd string) {
 	fmt.Printf("Nacl Go Pipe v%s¦ A simple (lame?) encryption pipe\n", npVersion)
 	fmt.Printf("using Salsa20/Poly1305 AEAD") //or AES256-GCM coming soon
+}
+
+func usage(cmd string) {
+	banner(cmd)
+	fmt.Printf("%s [options]\n", cmd)
+	flag.PrintDefaults()
 }
 
 func main() {
@@ -130,10 +68,15 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) != 0 || *hlpFlag == true {
-		banner(os.Args[0])
-		flag.PrintDefaults()
+		usage(os.Args[0])
 		os.Exit(1)
 	}
+
+	// TODO XXX we need to display the selected blocksize at encryption and
+	// propose it as an argument in case different host have different stdin
+	// blocksize
+	stdinFileStruct, _ := os.Stdin.Stat()
+	bufSize := stdinFileStruct.Size()
 
 	switch *decFlag {
 	case true:
@@ -143,7 +86,7 @@ func main() {
 			panic(err)
 		}
 
-		buf := make([]byte, 32768)
+		buf := make([]byte, bufSize)
 	DecryptLoop:
 		for {
 			n, err := crd.Read(buf)
@@ -169,13 +112,16 @@ func main() {
 			panic(err)
 		}
 
-		buf := make([]byte, 32768)
+		buf := make([]byte, bufSize-secretbox.Overhead)
 	CryptLoop:
 		for {
-			n, err := os.Stdin.Read(buf)
+			//n, err := os.Stdin.Read(buf)
+			n, err := io.ReadFull(os.Stdin, buf)
 			switch err {
 			case io.EOF:
 				break CryptLoop
+			case io.ErrUnexpectedEOF:
+				break
 			case nil:
 				break
 			default:
@@ -187,6 +133,5 @@ func main() {
 				panic(err)
 			}
 		} // End of CryptLoop
-
-	}
+	} // End of switch()
 }
