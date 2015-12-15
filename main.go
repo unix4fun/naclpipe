@@ -17,6 +17,12 @@ const (
 	defaultBufferSize = 32768
 )
 
+var npLog *DebugLog
+
+func init() {
+	npLog = NewDebugLog(os.Stderr, "<naclpipe> ")
+}
+
 // CryptoPipe define the structure that handle the crypto pipe operation
 // it also holds all internal datas related to the running pipe.
 type CryptoPipe struct {
@@ -37,29 +43,39 @@ func (c *CryptoPipe) init() {
 // shazam function does an SHA3 on the counter and update the counter/Nonce value generated.
 // stream operate in blocks, then each blocks will be encrypted with its nonce.
 func (c *CryptoPipe) shazam() (err error) {
+	npLog.Printf(1, "CALL (c:%p) shazam()\n", c)
 	sha3hash := sha3.New256()
 	countstr := fmt.Sprintf("%d", c.cnt)
 	_, err = sha3hash.Write([]byte(countstr))
 	if err != nil {
+		npLog.Printf(1, "RET (c:%p) shazam() -> [Error: %s]\n", c, err.Error())
 		return err
 	}
 	out := sha3hash.Sum(nil)
 	copy(c.cntNonce[:], out[:24])
+	npLog.Printf(1, "RET (c:%p) shazam() -> [Counter: %d]\n", c, c.cnt)
 	return nil
 }
 
+// banner is just a banner function.
 func banner(cmd string) {
 	fmt.Printf("Nacl Go Pipe v%s¦ A simple (lame?) encryption pipe\n", npVersion)
 	fmt.Printf("using Salsa20/Poly1305 AEAD") //or AES256-GCM coming soon
 }
 
-func usage(cmd string) {
-	banner(cmd)
-	fmt.Printf("%s [options]\n", cmd)
+// usage display the command line usage
+func usage() {
+	npLog.Printf(1, "CALL usage()\n")
+	banner(os.Args[0])
+	fmt.Printf("%s [options]\n", os.Args[0])
 	flag.PrintDefaults()
+	npLog.Printf(1, "RET usage()\n")
 }
 
 func main() {
+
+	// setup basic usage messages */
+	flag.Usage = usage
 
 	/* default is encrypt */
 	/* decrypt if necessary */
@@ -68,20 +84,25 @@ func main() {
 	hlpFlag := flag.Bool("h", false, "help")
 	/* key to provide */
 	keyFlag := flag.String("k", "n4clp1pebleh!", "key value")
+	verbFlag := flag.Int("v", 0, "verbosity level")
 
 	flag.Parse()
 
 	if len(flag.Args()) != 0 || *hlpFlag == true {
-		usage(os.Args[0])
+		flag.Usage()
 		os.Exit(1)
 	}
+
+	// set the log level default is 0
+	npLog.Set(*verbFlag)
 
 	// TODO XXX we need to display the selected blocksize at encryption and
 	// propose it as an argument in case different host have different stdin
 	// blocksize
 	stdinFileStruct, _ := os.Stdin.Stat()
 	bufSize := stdinFileStruct.Size()
-	if bufSize == 0 {
+	npLog.Printf(2, "bufSize: %d\n", bufSize)
+	if bufSize < (secretbox.Overhead * 2) {
 		bufSize = defaultBufferSize
 	}
 
