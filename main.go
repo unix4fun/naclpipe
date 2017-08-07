@@ -23,40 +23,6 @@ func init() {
 	npLog = NewDebugLog(os.Stderr, "<naclpipe> ")
 }
 
-// CryptoPipe define the structure that handle the crypto pipe operation
-// it also holds all internal datas related to the running pipe.
-type CryptoPipe struct {
-	dKey      *[32]byte // derived key
-	cntNonce  *[24]byte
-	cnt       uint64 // nonce counter
-	wr        io.Writer
-	rd        io.Reader
-	stdioSize uint32
-}
-
-func (c *CryptoPipe) init() {
-	c.cntNonce = new([24]byte)
-	c.dKey = new([32]byte)
-	c.cnt = 0
-}
-
-// shazam function does an SHA3 on the counter and update the counter/Nonce value generated.
-// stream operate in blocks, then each blocks will be encrypted with its nonce.
-func (c *CryptoPipe) shazam() (err error) {
-	npLog.Printf(1, "CALL (c:%p) shazam()\n", c)
-	sha3hash := sha3.New256()
-	countstr := fmt.Sprintf("%d", c.cnt)
-	_, err = sha3hash.Write([]byte(countstr))
-	if err != nil {
-		npLog.Printf(1, "RET (c:%p) shazam() -> [Error: %s]\n", c, err.Error())
-		return err
-	}
-	out := sha3hash.Sum(nil)
-	copy(c.cntNonce[:], out[:24])
-	npLog.Printf(1, "RET (c:%p) shazam() -> [Counter: %d]\n", c, c.cnt)
-	return nil
-}
-
 // banner is just a banner function.
 func banner(cmd string) {
 	fmt.Printf("Nacl Go Pipe v%s¦ A simple (lame?) encryption pipe\n", npVersion)

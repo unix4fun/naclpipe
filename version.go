@@ -1,3 +1,3 @@
 package main
-const npVersion string = "20151215"
 
+const npVersion string = "20170806"
