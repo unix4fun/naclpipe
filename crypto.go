@@ -1,3 +1,4 @@
+// +build go1.7
 package main
 
 import (
@@ -16,6 +17,12 @@ import (
 // INIT / INTERNAL
 //
 //
+const (
+	scryptCostParam = 16384
+	scryptCostN     = 8
+	scryptCostP     = 1
+	scryptKeyLen    = 32
+)
 
 // CryptoPipe define the structure that handle the crypto pipe operation
 // it also holds all internal datas related to the running pipe.
@@ -28,10 +35,40 @@ type CryptoPipe struct {
 	stdioSize uint32
 }
 
-func (c *CryptoPipe) init() {
+func (c *CryptoPipe) InitZero() {
 	c.cntNonce = new([24]byte)
 	c.dKey = new([32]byte)
 	c.cnt = 0
+}
+
+func (c *CryptoPipe) InitReader(r io.Reader, strKey string) (err error) {
+	salt := make([]byte, 16)
+
+	/* let's derive a key */
+	dKey, err := scrypt.Key([]byte(strKey), salt, scryptCostParam, scryptCostN, scryptCostP, scryptKeyLen)
+	if err != nil {
+		npLog.Printf(1, "RET InitReader(%p, [%s]) -> [Error:%s]\n", r, strKey, err.Error())
+		return err
+	}
+
+	copy(c.dKey[:], dKey)
+	c.rd = r
+	return
+}
+
+func (c *CryptoPipe) InitWriter(w io.Writer, strKey string) (err error) {
+	salt := make([]byte, 16)
+
+	/* let's derive a key */
+	dKey, err := scrypt.Key([]byte(strKey), salt, scryptCostParam, scryptCostN, scryptCostP, scryptKeyLen)
+	if err != nil {
+		npLog.Printf(1, "RET NewCryptoWriter(%p, [%s]) -> [Error: %s]\n", w, strKey, err.Error)
+		return err
+	}
+
+	copy(c.dKey[:], dKey)
+	c.wr = w
+	return
 }
 
 // shazam function does an SHA3 on the counter and update the counter/Nonce value generated.
@@ -62,22 +99,18 @@ func (c *CryptoPipe) shazam() {
 
 func NewCryptoReader(r io.Reader, strKey string) (c *CryptoPipe, err error) {
 	npLog.Printf(1, "CALL NewCryptoReader(%p, [%s])\n", r, strKey)
-	salt := make([]byte, 16)
+	//salt := make([]byte, 16)
 	c = new(CryptoPipe)
 
 	/* init values */
-	c.init()
+	c.InitZero()
 
 	/* let's derive a key */
-	dKey, err := scrypt.Key([]byte(strKey), salt, 16384, 8, 1, 32)
+	err = c.InitReader(r, strKey)
 	if err != nil {
 		npLog.Printf(1, "RET NewCryptoReader(%p, [%s]) -> [Error:%s]\n", r, strKey, err.Error())
 		return nil, err
 	}
-
-	copy(c.dKey[:], dKey)
-	c.rd = r
-
 	npLog.Printf(1, "RET NewCryptoReader(%p, [%s]) -> [c:%p]\n", r, strKey, c)
 	return
 }
@@ -116,21 +149,19 @@ func (c *CryptoPipe) Read(p []byte) (n int, err error) {
 
 func NewCryptoWriter(w io.Writer, strKey string) (c *CryptoPipe, err error) {
 	npLog.Printf(1, "CALL NewCryptoWriter(%p, [%s])\n", w, strKey)
-	salt := make([]byte, 16)
+	//salt := make([]byte, 16)
 	c = new(CryptoPipe)
 
 	/* init values */
-	c.init()
+	c.InitZero()
 
 	/* let's derive a key */
-	dKey, err := scrypt.Key([]byte(strKey), salt, 16384, 8, 1, 32)
+	err = c.InitWriter(w, strKey)
 	if err != nil {
 		npLog.Printf(1, "RET NewCryptoWriter(%p, [%s]) -> [Error: %s]\n", w, strKey, err.Error)
 		return nil, err
 	}
 
-	copy(c.dKey[:], dKey)
-	c.wr = w
 	npLog.Printf(1, "RET NewCryptoWriter(%p, [%s]) -> [c:%p]\n", w, strKey, c)
 	return
 }

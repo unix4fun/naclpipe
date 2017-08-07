@@ -1,4 +1,4 @@
-// +build go1.4
+// +build go1.7
 // naclpipe a simple (lame?) encryption pipe
 // quickly made to understand interface / io.Reader / io.Writer
 // eau <eau-code@unix4fun.net>
@@ -7,10 +7,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/nacl/secretbox"
-	"golang.org/x/crypto/sha3"
 	"io"
 	"os"
+
+	"golang.org/x/crypto/nacl/secretbox"
 )
 
 const (
@@ -25,7 +25,7 @@ func init() {
 
 // banner is just a banner function.
 func banner(cmd string) {
-	fmt.Printf("Nacl Go Pipe v%s¦ A simple (lame?) encryption pipe\n", npVersion)
+	fmt.Printf("Nacl Go Pipe v%s¦ a simple encryption pipe\n", npVersion)
 	fmt.Printf("using Salsa20/Poly1305 AEAD") //or AES256-GCM coming soon
 }
 
