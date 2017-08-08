@@ -56,6 +56,15 @@ func (c *CryptoPipe) InitReader(r io.Reader, strKey string) (err error) {
 	return
 }
 
+func (c *CryptoPipe) GetBufSize(size uint64) uint64 {
+	switch {
+	case c.wr != nil:
+		return (size - secretbox.Overhead)
+	default:
+		return size
+	}
+}
+
 func (c *CryptoPipe) InitWriter(w io.Writer, strKey string) (err error) {
 	salt := make([]byte, 16)
 

@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-
-	"golang.org/x/crypto/nacl/secretbox"
 )
 
 const (
@@ -61,16 +59,7 @@ func main() {
 
 	// set the log level default is 0
 	npLog.Set(*verbFlag)
-
-	// TODO XXX we need to display the selected blocksize at encryption and
-	// propose it as an argument in case different host have different stdin
-	// blocksize
-	stdinFileStruct, _ := os.Stdin.Stat()
-	bufSize := stdinFileStruct.Size()
-	npLog.Printf(2, "bufSize: %d\n", bufSize)
-	if bufSize < (secretbox.Overhead * 2) {
-		bufSize = defaultBufferSize
-	}
+	bufSize := defaultBufferSize
 
 	switch *decFlag {
 	case true:
@@ -80,7 +69,7 @@ func main() {
 			panic(err)
 		}
 
-		buf := make([]byte, bufSize)
+		buf := make([]byte, crd.GetBufSize(uint64(bufSize)))
 	DecryptLoop:
 		for {
 			n, err := crd.Read(buf)
@@ -106,12 +95,10 @@ func main() {
 			panic(err)
 		}
 
-		buf := make([]byte, bufSize-secretbox.Overhead)
+		buf := make([]byte, cwr.GetBufSize(uint64(bufSize)))
 	CryptLoop:
 		for {
-			//n, err := os.Stdin.Read(buf)
 			n, err := io.ReadFull(os.Stdin, buf)
-			//fmt.Printf("READ: %d / %v\n", n, err)
 			switch err {
 			case io.EOF:
 				break CryptLoop
