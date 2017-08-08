@@ -1,7 +1,7 @@
 // +build go1.7
 // naclpipe a simple (lame?) encryption pipe
 // quickly made to understand interface / io.Reader / io.Writer
-// eau <eau-code@unix4fun.net>
+// eau <eau+naclpipe@unix4fun.net>
 package main
 
 import (
