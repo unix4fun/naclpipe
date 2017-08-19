@@ -12,7 +12,10 @@ import (
 )
 
 const (
-	defaultBufferSize = 32768
+	// 32K
+	//defaultBufferSize = 32768
+	// 4M
+	defaultBufferSize = 4194304
 )
 
 var npLog *DebugLog
@@ -23,8 +26,8 @@ func init() {
 
 // banner is just a banner function.
 func banner(cmd string) {
-	fmt.Printf("Nacl Go Pipe v%s¦ a simple encryption pipe\n", npVersion)
-	fmt.Printf("using Salsa20/Poly1305 AEAD") //or AES256-GCM coming soon
+	fmt.Fprintf(os.Stderr, "Nacl Go Pipe v%s¦ a simple encryption pipe\n", npVersion)
+	fmt.Fprintf(os.Stderr, "using Salsa20/Poly1305 AEAD\n") //or AES256-GCM coming soon
 }
 
 // usage display the command line usage
