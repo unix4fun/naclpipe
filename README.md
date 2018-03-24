@@ -2,7 +2,9 @@
 NaCL pipe
 
 ## ChangeLog
-2018-03-24: fixing the empty scrypt salt reported by 
+2018-03-24: fixing the empty scrypt salt reported by Tom eklof 
+            better handling of pipe input.
+            the structure has changed as the CSPRNG'ed salt is prefixed to the series of blocks
 
 ## Install
     go get github.com/unix4fun/naclpipe
