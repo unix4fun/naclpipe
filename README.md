@@ -1,6 +1,9 @@
 # naclpipe
 NaCL pipe
 
+## ChangeLog
+2018-03-24: fixing the empty scrypt salt reported by 
+
 ## Install
     go get github.com/unix4fun/naclpipe
 
@@ -16,3 +19,4 @@ NaCL pipe
 ## Usage
 
     $ echo "proutproutprout" | ./naclpipe -k=tagadaa  | ./naclpipe -d -k=tagadaa
+

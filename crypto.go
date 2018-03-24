@@ -2,7 +2,7 @@
 package main
 
 import (
-	"encoding/hex"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -22,6 +22,7 @@ const (
 	scryptCostN     = 8
 	scryptCostP     = 1
 	scryptKeyLen    = 32
+	scryptSaltLen   = 16
 )
 
 // CryptoPipe define the structure that handle the crypto pipe operation
@@ -41,17 +42,31 @@ func (c *CryptoPipe) InitZero() {
 	c.cnt = 0
 }
 
-func (c *CryptoPipe) InitReader(r io.Reader, strKey string) (err error) {
-	salt := make([]byte, 16)
-
+func (c *CryptoPipe) DeriveKey(salt []byte, strKey string) (err error) {
 	/* let's derive a key */
 	dKey, err := scrypt.Key([]byte(strKey), salt, scryptCostParam, scryptCostN, scryptCostP, scryptKeyLen)
 	if err != nil {
-		npLog.Printf(1, "RET InitReader(%p, [%s]) -> [Error:%s]\n", r, strKey, err.Error())
-		return err
+		npLog.Printf(1, "RET DeriveKey( [%s]) -> [Error:%s]\n", strKey, err.Error())
+		return
 	}
 
 	copy(c.dKey[:], dKey)
+	return
+}
+
+func (c *CryptoPipe) InitReader(r io.Reader, strKey string) (err error) {
+	salt := make([]byte, scryptSaltLen)
+
+	_, err = r.Read(salt)
+	if err != nil {
+		return err
+	}
+
+	/* let's derive a key */
+	err = c.DeriveKey(salt, strKey)
+	if err != nil {
+		return
+	}
 	c.rd = r
 	return
 }
@@ -66,16 +81,23 @@ func (c *CryptoPipe) GetBufSize(size uint64) uint64 {
 }
 
 func (c *CryptoPipe) InitWriter(w io.Writer, strKey string) (err error) {
-	salt := make([]byte, 16)
-
-	/* let's derive a key */
-	dKey, err := scrypt.Key([]byte(strKey), salt, scryptCostParam, scryptCostN, scryptCostP, scryptKeyLen)
+	salt := make([]byte, scryptSaltLen)
+	_, err = rand.Read(salt)
 	if err != nil {
-		npLog.Printf(1, "RET NewCryptoWriter(%p, [%s]) -> [Error: %s]\n", w, strKey, err.Error)
 		return err
 	}
 
-	copy(c.dKey[:], dKey)
+	_, err = w.Write(salt)
+	if err != nil {
+		return err
+	}
+
+	/* let's derive a key */
+	err = c.DeriveKey(salt, strKey)
+	if err != nil {
+		return err
+	}
+
 	c.wr = w
 	return
 }
@@ -84,16 +106,6 @@ func (c *CryptoPipe) InitWriter(w io.Writer, strKey string) (err error) {
 // stream operate in blocks, then each blocks will be encrypted with its nonce.
 func (c *CryptoPipe) shazam() {
 	npLog.Printf(1, "CALL (c:%p) shazam()\n", c)
-	/*
-		sha3hash := sha3.New256()
-		countstr := fmt.Sprintf("%d", c.cnt)
-		_, err = sha3hash.Write([]byte(countstr))
-		if err != nil {
-			npLog.Printf(1, "RET (c:%p) shazam() -> [Error: %s]\n", c, err.Error())
-			return err
-		}
-		out := sha3hash.Sum(nil)
-	*/
 	out := sha3.Sum256([]byte(fmt.Sprintf("%d", c.cnt)))
 	copy(c.cntNonce[:], out[:24])
 	npLog.Printf(1, "RET (c:%p) shazam() -> [Counter: %d Nonce: %x Sha3: %x]\n", c, c.cnt, c.cntNonce, out)
@@ -143,7 +155,6 @@ func (c *CryptoPipe) Read(p []byte) (n int, err error) {
 	if res == true {
 		copy(p, pt)
 		c.cnt++
-		npLog.Printf(1, "RET (c:%p) Read(%p (%d)) -> %d, nil [PT:%s...]\n", c, p, cap(p), len(pt), hex.EncodeToString(pt)[:8])
 		return len(pt), nil
 	}
 	npLog.Printf(1, "RET (c:%p) Read(%p (%d)) -> [Error:crypto error]\n", c, p, cap(p), err.Error)
