@@ -31,6 +31,7 @@ type CryptoPipe struct {
 	dKey      *[32]byte // derived key
 	cntNonce  *[24]byte
 	cnt       uint64 // nonce counter
+	salt      []byte // salt value mainly to avoid the writer writing before the first block is written.
 	wr        io.Writer
 	rd        io.Reader
 	stdioSize uint32
@@ -81,19 +82,21 @@ func (c *CryptoPipe) GetBufSize(size uint64) uint64 {
 }
 
 func (c *CryptoPipe) InitWriter(w io.Writer, strKey string) (err error) {
-	salt := make([]byte, scryptSaltLen)
-	_, err = rand.Read(salt)
+	c.salt = make([]byte, scryptSaltLen)
+	_, err = rand.Read(c.salt)
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Write(salt)
-	if err != nil {
-		return err
-	}
+	/*
+		_, err = w.Write(salt)
+		if err != nil {
+			return err
+		}
+	*/
 
 	/* let's derive a key */
-	err = c.DeriveKey(salt, strKey)
+	err = c.DeriveKey(c.salt, strKey)
 	if err != nil {
 		return err
 	}
@@ -197,5 +200,11 @@ func (c *CryptoPipe) Write(p []byte) (n int, err error) {
 	n, err = c.wr.Write(ct)
 
 	npLog.Printf(1, "RET (c:%p) Write(%p (%d)) -> %d, %v\n", c, p, len(p), n, err)
+	return
+}
+
+func (c *CryptoPipe) WriteSalt() (err error) {
+	npLog.Printf(1, "CALL (c:%p) WriteSalt(%p (%d))\n", c, c.salt, len(c.salt))
+	_, err = c.wr.Write(c.salt)
 	return
 }

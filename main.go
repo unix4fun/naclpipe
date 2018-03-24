@@ -103,15 +103,33 @@ func main() {
 		for {
 			n, err := io.ReadFull(os.Stdin, buf)
 			switch err {
+			case io.ErrUnexpectedEOF:
+				//fmt.Printf("fuxor unexpected EOF\n")
+				if cwr.cnt == 0 {
+					if cwr.WriteSalt() != nil {
+						panic(err)
+					}
+				}
+
+				_, err = cwr.Write(buf[:n])
+				if err != nil {
+					panic(err)
+				}
+				fallthrough
 			case io.EOF:
 				break CryptLoop
-			case io.ErrUnexpectedEOF:
-				break
 			case nil:
 				break
 			default:
 				panic(err)
 			} // end of Switch
+
+			// we need salt if it's the first block
+			if cwr.cnt == 0 {
+				if cwr.WriteSalt() != nil {
+					panic(err)
+				}
+			}
 
 			_, err = cwr.Write(buf[:n])
 			if err != nil {
