@@ -3,7 +3,8 @@ NaCL Pipe Go Package
 
 ## Purpose
 A simple Go package providing an io.Reader/io.Writer interface with an NaCL (pronounced 'Salt') crypto backend.
-'[np](https://www.github.com/unix4fun/naclpipe)' is the previously called naclpipe tool using this Go package.
+
+*[np](https://www.github.com/unix4fun/naclpipe)* is the previously called naclpipe tool using this Go package.
 
 
 ## ChangeLog
@@ -22,10 +23,10 @@ A simple Go package providing an io.Reader/io.Writer interface with an NaCL (pro
     import github.com/unix4fun/naclpipe
 
 ## Package Usage Example
-Please see [np] (https://www.github.com/unix4fun/naclpipe/cmd/np).
+Please see *[np](https://www.github.com/unix4fun/naclpipe/cmd/np)*.
 
 ## Package Doc
-TBD
+TODO
 
 ## Featuring (because there is always a star in your production..)
 
