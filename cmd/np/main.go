@@ -1,7 +1,7 @@
 // +build go1.7
 // naclpipe a simple (lame?) encryption pipe
 // quickly made to understand interface / io.Reader / io.Writer
-// eau <eau+naclpipe@unix4fun.net>
+// Copyright (c) eau <eau+naclpipe@unix4fun.net>
 package main
 
 import (
@@ -10,14 +10,12 @@ import (
 	"io"
 	"os"
 
-	// our new lib.
+	// naclpipe package
 	"github.com/unix4fun/naclpipe"
 )
 
 const (
-	// 32K
-	//defaultBufferSize = 32768
-	// default Key (insecure guys..)
+	// default Key (insecure obviously..)
 	defaultInsecureHardcodedKeyForLazyFolks = "n4clp1pebleh!"
 	defaultBufferSize                       = 4194304 // 4M
 	Version                                 = "0.1.0"
@@ -32,7 +30,7 @@ func init() {
 // banner is just a banner function.
 func banner(cmd string) {
 	fmt.Fprintf(os.Stderr, "Nacl Pipe v%s¦ a simple encryption pipe\n", Version)
-	fmt.Fprintf(os.Stderr, "using Salsa20/Poly1305 AEAD\n") //or AES256-GCM coming soon
+	fmt.Fprintf(os.Stderr, "using Salsa20/Poly1305 AEAD\n")
 }
 
 // usage display the command line usage
@@ -77,8 +75,6 @@ func main() {
 
 	DecryptLoop:
 		for {
-			// this needs to read size + overhead
-			// n == size (- overhead)
 			n, err := crd.Read(buf)
 			switch err {
 			case io.EOF:
@@ -107,8 +103,6 @@ func main() {
 			n, err := io.ReadFull(os.Stdin, buf)
 			switch err {
 			case io.ErrUnexpectedEOF:
-				// this will write size + overhead
-				// n == len(buf) + secretbox.Overhead
 				_, err = cwr.Write(buf[:n])
 				if err != nil {
 					panic(err)
