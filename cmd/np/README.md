@@ -1,16 +1,10 @@
-# naclpipe
-NaCL pipe
+# NP
+(N)aCL (P)ipe
 
 ## ChangeLog
-2018-04-01: separating command 'np' and package 'naclpipe', this way package can eventually be reused as "crypto" stream.
-            as an io.Reader/Writer interface.
-            Starting 'semver' and documenting.
-            First version will be 0.1.0
-            
-2018-03-24: fixing the empty scrypt salt reported by Tom eklof 
-            better handling of pipe input.
-            the structure has changed as the CSPRNG'ed salt is prefixed to the series of blocks
-
+* 2018-04-02
+  * renamed, updated, now using the [naclpipe](https://github.com/unix4fun/naclpipe) Go package io.Reader/io.Writer interface
+  * First version 0.1.0
 
 ## Command Install
     go get github.com/unix4fun/naclpipe/cmd/np
@@ -27,9 +21,3 @@ NaCL pipe
 ## Command Usage
 
     $ echo "proutproutprout" | ./np -k=tagadaa  | ./np -d -k=tagadaa
-
-
-
-## Library Usage
-
-    import github.com/unix4fun/naclpipe
