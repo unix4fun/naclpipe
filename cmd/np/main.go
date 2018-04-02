@@ -31,7 +31,7 @@ func init() {
 
 // banner is just a banner function.
 func banner(cmd string) {
-	fmt.Fprintf(os.Stderr, "Nacl Pipe v%s¦ a simple encryption pipe\n", npVersion)
+	fmt.Fprintf(os.Stderr, "Nacl Pipe v%s¦ a simple encryption pipe\n", Version)
 	fmt.Fprintf(os.Stderr, "using Salsa20/Poly1305 AEAD\n") //or AES256-GCM coming soon
 }
 
