@@ -17,9 +17,10 @@ import (
 const (
 	// 32K
 	//defaultBufferSize = 32768
-	// 4M
-	defaultBufferSize = 4194304
-	npVersion         = "0.1.0"
+	// default Key (insecure guys..)
+	defaultInsecureHardcodedKeyForLazyFolks = "n4clp1pebleh!"
+	defaultBufferSize                       = 4194304 // 4M
+	Version                                 = "0.1.0"
 )
 
 var npLog *DebugLog
@@ -30,7 +31,7 @@ func init() {
 
 // banner is just a banner function.
 func banner(cmd string) {
-	fmt.Fprintf(os.Stderr, "Nacl Go Pipe v%s¦ a simple encryption pipe\n", npVersion)
+	fmt.Fprintf(os.Stderr, "Nacl Pipe v%s¦ a simple encryption pipe\n", npVersion)
 	fmt.Fprintf(os.Stderr, "using Salsa20/Poly1305 AEAD\n") //or AES256-GCM coming soon
 }
 
@@ -52,7 +53,7 @@ func main() {
 	//dbgFlag := flag.Bool("v", false, "verbose log")
 	hlpFlag := flag.Bool("h", false, "help")
 	/* key to provide */
-	keyFlag := flag.String("k", "n4clp1pebleh!", "key value")
+	keyFlag := flag.String("k", defaultInsecureHardcodedKeyForLazyFolks, "key value")
 	//verbFlag := flag.Int("v", 0, "verbosity level")
 
 	flag.Parse()
