@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	// our new lib.
+	"github.com/unix4fun/naclpipe"
 )
 
 const (
@@ -16,6 +19,7 @@ const (
 	//defaultBufferSize = 32768
 	// 4M
 	defaultBufferSize = 4194304
+	npVersion         = "0.1.0"
 )
 
 var npLog *DebugLog
@@ -32,11 +36,9 @@ func banner(cmd string) {
 
 // usage display the command line usage
 func usage() {
-	npLog.Printf(1, "CALL usage()\n")
 	banner(os.Args[0])
 	fmt.Printf("%s [options]\n", os.Args[0])
 	flag.PrintDefaults()
-	npLog.Printf(1, "RET usage()\n")
 }
 
 func main() {
@@ -51,7 +53,7 @@ func main() {
 	hlpFlag := flag.Bool("h", false, "help")
 	/* key to provide */
 	keyFlag := flag.String("k", "n4clp1pebleh!", "key value")
-	verbFlag := flag.Int("v", 0, "verbosity level")
+	//verbFlag := flag.Int("v", 0, "verbosity level")
 
 	flag.Parse()
 
@@ -61,20 +63,21 @@ func main() {
 	}
 
 	// set the log level default is 0
-	npLog.Set(*verbFlag)
-	bufSize := defaultBufferSize
+	//npLog.Set(*verbFlag)
 
+	buf := make([]byte, defaultBufferSize)
 	switch *decFlag {
 	case true:
 		// Decrypt
-		crd, err := NewCryptoReader(os.Stdin, *keyFlag)
+		crd, err := naclpipe.NewReader(os.Stdin, *keyFlag)
 		if err != nil {
 			panic(err)
 		}
 
-		buf := make([]byte, crd.GetBufSize(uint64(bufSize)))
 	DecryptLoop:
 		for {
+			// this needs to read size + overhead
+			// n == size (- overhead)
 			n, err := crd.Read(buf)
 			switch err {
 			case io.EOF:
@@ -93,24 +96,18 @@ func main() {
 
 	default:
 		// Encrypt
-		cwr, err := NewCryptoWriter(os.Stdout, *keyFlag)
+		cwr, err := naclpipe.NewWriter(os.Stdout, *keyFlag)
 		if err != nil {
 			panic(err)
 		}
 
-		buf := make([]byte, cwr.GetBufSize(uint64(bufSize)))
 	CryptLoop:
 		for {
 			n, err := io.ReadFull(os.Stdin, buf)
 			switch err {
 			case io.ErrUnexpectedEOF:
-				//fmt.Printf("fuxor unexpected EOF\n")
-				if cwr.cnt == 0 {
-					if cwr.WriteSalt() != nil {
-						panic(err)
-					}
-				}
-
+				// this will write size + overhead
+				// n == len(buf) + secretbox.Overhead
 				_, err = cwr.Write(buf[:n])
 				if err != nil {
 					panic(err)
@@ -125,12 +122,6 @@ func main() {
 			} // end of Switch
 
 			// we need salt if it's the first block
-			if cwr.cnt == 0 {
-				if cwr.WriteSalt() != nil {
-					panic(err)
-				}
-			}
-
 			_, err = cwr.Write(buf[:n])
 			if err != nil {
 				panic(err)

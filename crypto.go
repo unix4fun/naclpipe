@@ -1,5 +1,5 @@
 // +build go1.7
-package main
+package naclpipe
 
 import (
 	"crypto/rand"
@@ -23,11 +23,14 @@ const (
 	scryptCostP     = 1
 	scryptKeyLen    = 32
 	scryptSaltLen   = 16
+
+	// library version
+	Version = "0.1.0"
 )
 
-// CryptoPipe define the structure that handle the crypto pipe operation
+// NaclPipe define the structure that handle the crypto pipe operation
 // it also holds all internal datas related to the running pipe.
-type CryptoPipe struct {
+type NaclPipe struct {
 	dKey      *[32]byte // derived key
 	cntNonce  *[24]byte
 	cnt       uint64 // nonce counter
@@ -37,17 +40,17 @@ type CryptoPipe struct {
 	stdioSize uint32
 }
 
-func (c *CryptoPipe) InitZero() {
+func (c *NaclPipe) initialize() {
 	c.cntNonce = new([24]byte)
 	c.dKey = new([32]byte)
 	c.cnt = 0
 }
 
-func (c *CryptoPipe) DeriveKey(salt []byte, strKey string) (err error) {
+func (c *NaclPipe) deriveKey(salt []byte, strKey string) (err error) {
 	/* let's derive a key */
 	dKey, err := scrypt.Key([]byte(strKey), salt, scryptCostParam, scryptCostN, scryptCostP, scryptKeyLen)
 	if err != nil {
-		npLog.Printf(1, "RET DeriveKey( [%s]) -> [Error:%s]\n", strKey, err.Error())
+		//npLog.Printf(1, "RET deriveKey( [%s]) -> [Error:%s]\n", strKey, err.Error())
 		return
 	}
 
@@ -55,24 +58,7 @@ func (c *CryptoPipe) DeriveKey(salt []byte, strKey string) (err error) {
 	return
 }
 
-func (c *CryptoPipe) InitReader(r io.Reader, strKey string) (err error) {
-	salt := make([]byte, scryptSaltLen)
-
-	_, err = r.Read(salt)
-	if err != nil {
-		return err
-	}
-
-	/* let's derive a key */
-	err = c.DeriveKey(salt, strKey)
-	if err != nil {
-		return
-	}
-	c.rd = r
-	return
-}
-
-func (c *CryptoPipe) GetBufSize(size uint64) uint64 {
+func (c *NaclPipe) GetBufSize(size uint64) uint64 {
 	switch {
 	case c.wr != nil:
 		return (size - secretbox.Overhead)
@@ -81,37 +67,13 @@ func (c *CryptoPipe) GetBufSize(size uint64) uint64 {
 	}
 }
 
-func (c *CryptoPipe) InitWriter(w io.Writer, strKey string) (err error) {
-	c.salt = make([]byte, scryptSaltLen)
-	_, err = rand.Read(c.salt)
-	if err != nil {
-		return err
-	}
-
-	/*
-		_, err = w.Write(salt)
-		if err != nil {
-			return err
-		}
-	*/
-
-	/* let's derive a key */
-	err = c.DeriveKey(c.salt, strKey)
-	if err != nil {
-		return err
-	}
-
-	c.wr = w
-	return
-}
-
 // shazam function does an SHA3 on the counter and update the counter/Nonce value generated.
 // stream operate in blocks, then each blocks will be encrypted with its nonce.
-func (c *CryptoPipe) shazam() {
-	npLog.Printf(1, "CALL (c:%p) shazam()\n", c)
+func (c *NaclPipe) shazam() {
+	//npLog.Printf(1, "CALL (c:%p) shazam()\n", c)
 	out := sha3.Sum256([]byte(fmt.Sprintf("%d", c.cnt)))
 	copy(c.cntNonce[:], out[:24])
-	npLog.Printf(1, "RET (c:%p) shazam() -> [Counter: %d Nonce: %x Sha3: %x]\n", c, c.cnt, c.cntNonce, out)
+	//npLog.Printf(1, "RET (c:%p) shazam() -> [Counter: %d Nonce: %x Sha3: %x]\n", c, c.cnt, c.cntNonce, out)
 	return
 }
 
@@ -121,36 +83,71 @@ func (c *CryptoPipe) shazam() {
 //
 //
 
-func NewCryptoReader(r io.Reader, strKey string) (c *CryptoPipe, err error) {
-	npLog.Printf(1, "CALL NewCryptoReader(%p, [%s])\n", r, strKey)
-	//salt := make([]byte, 16)
-	c = new(CryptoPipe)
+func (c *NaclPipe) initReader(r io.Reader, strKey string) (err error) {
+	salt := make([]byte, scryptSaltLen)
 
-	/* init values */
-	c.InitZero()
+	// we read the salt immediately
+	_, err = r.Read(salt)
+	if err != nil {
+		return err
+	}
 
 	/* let's derive a key */
-	err = c.InitReader(r, strKey)
+	err = c.deriveKey(salt, strKey)
 	if err != nil {
-		npLog.Printf(1, "RET NewCryptoReader(%p, [%s]) -> [Error:%s]\n", r, strKey, err.Error())
+		return
+	}
+	c.rd = r
+	return
+}
+
+/*
+func NewReaderBufferSlice(size uint64) ([]byte, error) {
+
+	if size < secretbox.Overhead {
+		return nil, errors.New("too small")
+	}
+	//buf := make([]byte, cwr.GetBufSize(uint64(bufSize)))
+	return make([]byte, size)
+}
+*/
+
+func NewReader(r io.Reader, strKey string) (io.Reader, error) {
+	//npLog.Printf(1, "CALL NewReader(%p, [%s])\n", r, strKey)
+	return newCryptoReader(r, strKey)
+}
+
+func newCryptoReader(r io.Reader, strKey string) (c *NaclPipe, err error) {
+	//npLog.Printf(1, "CALL newCryptoReader(%p, [%s])\n", r, strKey)
+	//salt := make([]byte, 16)
+	c = new(NaclPipe)
+
+	/* init values */
+	c.initialize()
+
+	/* let's derive a key */
+	err = c.initReader(r, strKey)
+	if err != nil {
+		//npLog.Printf(1, "RET newCryptoReader(%p, [%s]) -> [Error:%s]\n", r, strKey, err.Error())
 		return nil, err
 	}
-	npLog.Printf(1, "RET NewCryptoReader(%p, [%s]) -> [c:%p]\n", r, strKey, c)
+	//npLog.Printf(1, "RET newCryptoReader(%p, [%s]) -> [c:%p]\n", r, strKey, c)
 	return
 }
 
 // Read will read the amount of
-func (c *CryptoPipe) Read(p []byte) (n int, err error) {
-	npLog.Printf(1, "CALL (c:%p) Read(%p (%d))\n", c, p, cap(p))
+func (c *NaclPipe) Read(p []byte) (n int, err error) {
+	//npLog.Printf(1, "CALL (c:%p) Read(%p (%d))\n", c, p, cap(p))
 
 	c.shazam()
 
-	b := make([]byte, len(p))
+	//b := make([]byte, len(p))
+	b := make([]byte, len(p)+secretbox.Overhead)
 
 	//n, err = c.rd.Read(b)
 	n, err = io.ReadFull(c.rd, b)
 	if err != nil && err != io.ErrUnexpectedEOF {
-		npLog.Printf(1, "RET (c:%p) Read(%p (%d)) -> [Error:%s]\n", c, p, cap(p), err.Error())
+		//npLog.Printf(1, "RET (c:%p) Read(%p (%d)) -> [Error:%s]\n", c, p, cap(p), err.Error())
 		return n, err
 	}
 
@@ -160,8 +157,8 @@ func (c *CryptoPipe) Read(p []byte) (n int, err error) {
 		c.cnt++
 		return len(pt), nil
 	}
-	npLog.Printf(1, "RET (c:%p) Read(%p (%d)) -> [Error:crypto error]\n", c, p, cap(p), err.Error)
-	return 0, errors.New("crypto error")
+	//npLog.Printf(1, "RET (c:%p) Read(%p (%d)) -> [Error:crypto error]\n", c, p, cap(p), err.Error)
+	return 0, errors.New("secretbox.Open() error")
 }
 
 //
@@ -170,41 +167,85 @@ func (c *CryptoPipe) Read(p []byte) (n int, err error) {
 //
 //
 
-func NewCryptoWriter(w io.Writer, strKey string) (c *CryptoPipe, err error) {
-	npLog.Printf(1, "CALL NewCryptoWriter(%p, [%s])\n", w, strKey)
-	//salt := make([]byte, 16)
-	c = new(CryptoPipe)
+func (c *NaclPipe) writeSalt() (err error) {
+	//npLog.Printf(1, "CALL (c:%p) WriteSalt(%p (%d))\n", c, c.salt, len(c.salt))
+	_, err = c.wr.Write(c.salt)
+	return
+}
 
-	/* init values */
-	c.InitZero()
+func (c *NaclPipe) initWriter(w io.Writer, strKey string) (err error) {
+	c.salt = make([]byte, scryptSaltLen)
+	// initialize a CSPRNG salt
+	_, err = rand.Read(c.salt)
+	if err != nil {
+		return
+	}
 
 	/* let's derive a key */
-	err = c.InitWriter(w, strKey)
+	err = c.deriveKey(c.salt, strKey)
 	if err != nil {
-		npLog.Printf(1, "RET NewCryptoWriter(%p, [%s]) -> [Error: %s]\n", w, strKey, err.Error)
+		return
+	}
+
+	c.wr = w
+	return
+}
+
+/*
+func NewWriterBufferSlice(size uint64) ([]byte, error) {
+
+	if size < secretbox.Overhead {
+		return nil, errors.New("too small")
+	}
+
+	//buf := make([]byte, cwr.GetBufSize(uint64(bufSize)))
+	return make([]byte, size-secretbox.Overhead)
+}
+*/
+
+func NewWriter(w io.Writer, strKey string) (io.Writer, error) {
+	//npLog.Printf(1, "CALL NewWriter(%p, [%s])\n", w, strKey)
+	return newCryptoWriter(w, strKey)
+}
+
+func newCryptoWriter(w io.Writer, strKey string) (c *NaclPipe, err error) {
+	//npLog.Printf(1, "CALL newCryptoWriter(%p, [%s])\n", w, strKey)
+	//salt := make([]byte, 16)
+	c = new(NaclPipe)
+
+	/* init values */
+	c.initialize()
+
+	/* let's derive a key */
+	err = c.initWriter(w, strKey)
+	if err != nil {
+		//npLog.Printf(1, "RET newCryptoWriter(%p, [%s]) -> [Error: %s]\n", w, strKey, err.Error)
 		return nil, err
 	}
 
-	npLog.Printf(1, "RET NewCryptoWriter(%p, [%s]) -> [c:%p]\n", w, strKey, c)
+	//npLog.Printf(1, "RET newCryptoWriter(%p, [%s]) -> [c:%p]\n", w, strKey, c)
 	return
 }
 
 // SHA3 the counter use it as nonce
-func (c *CryptoPipe) Write(p []byte) (n int, err error) {
-	npLog.Printf(1, "CALL (c:%p) Write(%p (%d))\n", c, p, len(p))
+func (c *NaclPipe) Write(p []byte) (n int, err error) {
+	//npLog.Printf(1, "CALL (c:%p) Write(%p (%d))\n", c, p, len(p))
 
 	c.shazam()
+
+	if c.cnt == 0 {
+		err = c.writeSalt()
+		if err != nil {
+			return
+		}
+	}
+
+	// Seal
 	ct := secretbox.Seal(nil, p, c.cntNonce, c.dKey)
 	c.cnt++
-	//fmt.Fprintf(os.Stderr, "BOX HEX[%d]: %s\n", len(ct), hex.EncodeToString(ct)[:32])
+
+	// now Write()
 	n, err = c.wr.Write(ct)
-
-	npLog.Printf(1, "RET (c:%p) Write(%p (%d)) -> %d, %v\n", c, p, len(p), n, err)
-	return
-}
-
-func (c *CryptoPipe) WriteSalt() (err error) {
-	npLog.Printf(1, "CALL (c:%p) WriteSalt(%p (%d))\n", c, c.salt, len(c.salt))
-	_, err = c.wr.Write(c.salt)
+	//npLog.Printf(1, "RET (c:%p) Write(%p (%d)) -> %d, %v\n", c, p, len(p), n, err)
 	return
 }
