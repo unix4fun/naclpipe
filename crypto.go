@@ -23,9 +23,6 @@ const (
 	scryptCostP     = 1
 	scryptKeyLen    = 32
 	scryptSaltLen   = 16
-
-	// library version
-	Version = "0.1.0"
 )
 
 // NaclPipe define the structure that handle the crypto pipe operation
@@ -100,17 +97,6 @@ func (c *NaclPipe) initReader(r io.Reader, strKey string) (err error) {
 	c.rd = r
 	return
 }
-
-/*
-func NewReaderBufferSlice(size uint64) ([]byte, error) {
-
-	if size < secretbox.Overhead {
-		return nil, errors.New("too small")
-	}
-	//buf := make([]byte, cwr.GetBufSize(uint64(bufSize)))
-	return make([]byte, size)
-}
-*/
 
 func NewReader(r io.Reader, strKey string) (io.Reader, error) {
 	//npLog.Printf(1, "CALL NewReader(%p, [%s])\n", r, strKey)
@@ -190,18 +176,6 @@ func (c *NaclPipe) initWriter(w io.Writer, strKey string) (err error) {
 	c.wr = w
 	return
 }
-
-/*
-func NewWriterBufferSlice(size uint64) ([]byte, error) {
-
-	if size < secretbox.Overhead {
-		return nil, errors.New("too small")
-	}
-
-	//buf := make([]byte, cwr.GetBufSize(uint64(bufSize)))
-	return make([]byte, size-secretbox.Overhead)
-}
-*/
 
 func NewWriter(w io.Writer, strKey string) (io.Writer, error) {
 	//npLog.Printf(1, "CALL NewWriter(%p, [%s])\n", w, strKey)
