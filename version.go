@@ -1,3 +1,3 @@
 package naclpipe
 
-const Version string = "v0.1.0"
+const Version string = "0.1.0"

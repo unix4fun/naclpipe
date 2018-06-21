@@ -18,7 +18,7 @@ const (
 	// default Key (insecure obviously..)
 	defaultInsecureHardcodedKeyForLazyFolks = "n4clp1pebleh!"
 	defaultBufferSize                       = 4194304 // 4M
-	Version                                 = "0.1.0"
+	Version                                 = "0.1.1"
 )
 
 var npLog *DebugLog
@@ -30,7 +30,7 @@ func init() {
 // banner is just a banner function.
 func banner(cmd string) {
 	fmt.Fprintf(os.Stderr, "Nacl Pipe v%s¦ a simple encryption pipe\n", Version)
-	fmt.Fprintf(os.Stderr, "using Salsa20/Poly1305 AEAD\n")
+	fmt.Fprintf(os.Stderr, "using naclpipe %v library\n", naclpipe.Version)
 }
 
 // usage display the command line usage
