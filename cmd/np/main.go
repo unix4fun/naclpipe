@@ -1,4 +1,5 @@
 // +build go1.7
+
 // naclpipe a simple (lame?) encryption pipe
 // quickly made to understand interface / io.Reader / io.Writer
 // Copyright (c) eau <eau+naclpipe@unix4fun.net>
@@ -18,7 +19,7 @@ const (
 	// default Key (insecure obviously..)
 	defaultInsecureHardcodedKeyForLazyFolks = "n4clp1pebleh!"
 	defaultBufferSize                       = 4194304 // 4M
-	Version                                 = "0.1.1"
+	Version                                 = "0.2.0"
 )
 
 var npLog *DebugLog
@@ -48,6 +49,8 @@ func main() {
 	/* default is encrypt */
 	/* decrypt if necessary */
 	decFlag := flag.Bool("d", false, "decrypt")
+	// algorithm
+	algFlag := flag.Bool("o", false, "use (old?) scrypt")
 	//dbgFlag := flag.Bool("v", false, "verbose log")
 	hlpFlag := flag.Bool("h", false, "help")
 	/* key to provide */
@@ -61,14 +64,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// derivation..
+	derivation := naclpipe.DerivateArgon2id
+	if *algFlag == true {
+		derivation = naclpipe.DerivateScrypt
+	}
+
 	// set the log level default is 0
 	//npLog.Set(*verbFlag)
 
+	fmt.Fprintf(os.Stderr, "KEY: %s\n", *keyFlag)
 	buf := make([]byte, defaultBufferSize)
 	switch *decFlag {
 	case true:
 		// Decrypt
-		crd, err := naclpipe.NewReader(os.Stdin, *keyFlag)
+		crd, err := naclpipe.NewReader(os.Stdin, *keyFlag, derivation)
 		if err != nil {
 			panic(err)
 		}
@@ -93,7 +103,7 @@ func main() {
 
 	default:
 		// Encrypt
-		cwr, err := naclpipe.NewWriter(os.Stdout, *keyFlag)
+		cwr, err := naclpipe.NewWriter(os.Stdout, *keyFlag, derivation)
 		if err != nil {
 			panic(err)
 		}
