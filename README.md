@@ -8,6 +8,11 @@ A simple Go package providing an io.Reader/io.Writer interface with an NaCL (pro
 
 
 ## ChangeLog
+* 2018-06-24
+  * added argon2id key derivation function.
+  * upgraded the key derivation function and the parameters to a 2018 flavor.
+  * added some godoc documentation
+
 * 2018-04-01
   * separating command 'np' and package 'naclpipe', this way package can eventually be reused as "crypto" stream.
   * reusable io.Reader/Writer interface.
@@ -20,9 +25,11 @@ A simple Go package providing an io.Reader/io.Writer interface with an NaCL (pro
 
 ## Package Usage 
 
-    import github.com/unix4fun/naclpipe
+    import "github.com/unix4fun/naclpipe"
 
-## Package Usage Example
+    cryptoReader, err := naclpipe.NewReader(os.Stdin, "mysuperduperpassword", naclpipe.DerivateArgon2id)
+
+## Package Usage Example / Tool
 Please see *[np](https://www.github.com/unix4fun/naclpipe/tree/master/cmd/np)*.
 
 ## Package Doc
