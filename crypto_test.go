@@ -1,9 +1,16 @@
+// +build go1.10
+
 package naclpipe
 
 import (
+	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
+	"io"
 	"testing"
+
+	mrnd "math/rand"
 )
 
 const (
@@ -12,11 +19,14 @@ const (
 
 var (
 	errReader = errors.New("reader error")
+	errWriter = errors.New("writer error")
 )
 
 type TestReaderZero struct {
 }
 type TestReaderFail struct {
+}
+type TestReaderFailIO struct {
 }
 
 func (r *TestReaderZero) Read(b []byte) (n int, err error) {
@@ -27,6 +37,20 @@ func (r *TestReaderZero) Read(b []byte) (n int, err error) {
 
 func (r *TestReaderFail) Read(b []byte) (n int, err error) {
 	return 0, errReader
+}
+
+func (r *TestReaderFailIO) Read(b []byte) (n int, err error) {
+	lb := make([]byte, len(b))
+	copy(b, lb)
+	return len(b), io.ErrUnexpectedEOF
+}
+
+type TestWriter struct {
+}
+
+func (w *TestWriter) Write(b []byte) (n int, err error) {
+	//fmt.Printf("TestWriterLog buf: %d bytes\n", len(b))
+	return 0, errWriter
 }
 
 /*
@@ -171,7 +195,7 @@ func TestNaclDeriveKeyOK(t *testing.T) {
  *
  *
  *
- * initReader TESTING
+ * initReader/initWriter TESTING
  *
  *
  *
@@ -206,6 +230,20 @@ func TestInitReaderShortPass(t *testing.T) {
 	}
 }
 
+func TestInitWriterShortPass(t *testing.T) {
+	tr := &TestWriter{}
+
+	c := new(NaclPipe)
+	c.initialize(DerivateArgon2id)
+
+	err := c.initWriter(tr, "pass")
+	switch err {
+	case ErrUnsafe:
+	default:
+		t.Errorf("should warn it IS unsafe: %v", err)
+	}
+}
+
 func TestInitReaderFail(t *testing.T) {
 	tr := &TestReaderFail{}
 
@@ -226,7 +264,8 @@ func TestInitReaderFail(t *testing.T) {
  *
  *
  * PUBLIC INTERFACE TESTING
- * naclpipe.NewReader(r io.Reader, strKey string, derivation int) (io.Reader, error)
+ * naclpipe.NewReader(r io.Reader, password string, derivation int) (io.Reader, error)
+ * naclpipe.NewWriter(r io.Writer, password string, derivation int) (io.Writer, error)
  *
  *
  *
@@ -255,6 +294,18 @@ func TestNewReaderShortPass(t *testing.T) {
 
 }
 
+func TestNewWriterShortPass(t *testing.T) {
+	tw := &TestWriter{}
+
+	_, err := NewWriter(tw, "pass", DerivateScrypt)
+	switch err {
+	case ErrUnsafe:
+	default:
+		t.Errorf("should warn it IS unsafe: %v", err)
+	}
+
+}
+
 func TestNewReaderFailReader(t *testing.T) {
 	tr := &TestReaderFail{}
 
@@ -263,6 +314,21 @@ func TestNewReaderFailReader(t *testing.T) {
 	case errReader:
 	default:
 		t.Errorf("should warn it IS unsafe: %v", err)
+	}
+
+}
+
+func TestNewWriterFailWriter(t *testing.T) {
+	tw := &TestWriter{}
+	cw, err := NewWriter(tw, "password", DerivateScrypt)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	buf := []byte("testtesttest")
+	n, err := cw.Write(buf)
+	if err != errWriter {
+		t.Fatalf("unexpected error: %d/%v", n, err)
 	}
 
 }
@@ -350,6 +416,126 @@ func TestNewReaderValidDerivationScrypt010(t *testing.T) {
 		}
 	default:
 		t.Errorf("no error but: %v", err)
+	}
+
+}
+
+/*
+ *
+ *
+ *
+ *
+ * PUBLIC INTERFACE TESTING
+ * naclpipe.Read(p []byte) (n int , err error)
+ *
+ *
+ *
+ *
+ */
+
+func TestReadZeroLength(t *testing.T) {
+	b := make([]byte, 0)
+
+	cr, err := NewReader(rand.Reader, "password", DerivateArgon2id)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	n, err := cr.Read(b)
+	if err != nil {
+		t.Fatalf("unexpected error: %v (vs nil)", err)
+	}
+
+	if n != 0 {
+		t.Fatalf("unexpected read %d bytes (vs 0)", n)
+	}
+}
+
+func TestReadInvalidReaderByte(t *testing.T) {
+	b := make([]byte, 1)
+
+	cr, err := NewReader(rand.Reader, "password", DerivateArgon2id)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	n, err := cr.Read(b)
+	if err != ErrRead {
+		t.Errorf("unexpected error: %v (vs nil)", err)
+	}
+
+	if n != 0 {
+		t.Errorf("unexpected read %d bytes (vs 0)", n)
+	}
+}
+
+func TestReadUnexpectedEndIo(t *testing.T) {
+	tr := &TestReaderFailIO{}
+	//b := make([]byte, 32)
+
+	cr, err := NewReader(tr, "password", DerivateArgon2id)
+	if err != io.ErrUnexpectedEOF {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cr != nil {
+		t.Errorf("unexpected reader: %T/%p/%v", cr, cr, cr)
+	}
+}
+
+func TestReadWrite(t *testing.T) {
+	mr := mrnd.Intn(100)
+	mrk := mrnd.Intn(1024)
+	size := mr * mrk * 1024
+	b := make([]byte, size)
+	c := make([]byte, size)
+	iobuf := new(bytes.Buffer)
+
+	for i := 0; i < 10; i++ {
+		t.Logf("[%d] size: %d x %d MB block", i, mr, mrk)
+
+		// READ RANDOM DATA
+		n, err := rand.Read(b)
+		if err != nil {
+			t.Fatalf("reading rand (%d) error: %v", err, n)
+		}
+
+		// let's do the SHA
+		origSha := sha256.Sum256(b)
+
+		cw, err := NewWriter(iobuf, "password", DerivateArgon2id)
+		if err != nil {
+			t.Fatalf("writer error: %v", err)
+		}
+
+		// CRYPT IT
+		n, err = cw.Write(b)
+		if err != nil {
+			t.Fatalf("crypto writer (%d bytes) error: %v", n, err)
+		}
+
+		// CREATE CRYPTO READER
+		cr, err := NewReader(iobuf, "password", DerivateArgon2id)
+		if err != nil {
+			t.Fatalf("reader setup fail")
+		}
+
+		// READ CRYPTED DATA
+		n, err = cr.Read(c)
+		if err != nil || n == 0 {
+			t.Fatalf("unexpected error: %v (vs nil) n: %d", err, n)
+		}
+
+		// the sha after decryption
+		rwSha := sha256.Sum256(c)
+
+		if bytes.Equal(origSha[:], rwSha[:]) != true {
+			t.Fatalf("sha do not match")
+		}
+
+		iobuf.Reset()
+		mr = mrnd.Intn(100)
+		mrk = mrnd.Intn(1024)
 	}
 
 }

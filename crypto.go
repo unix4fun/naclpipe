@@ -1,4 +1,4 @@
-// +build go1.7
+// +build go1.10
 
 package naclpipe
 
@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"golang.org/x/crypto/argon2" //let's add argon2id
 	"golang.org/x/crypto/nacl/secretbox"
@@ -26,20 +27,24 @@ const (
 	oldScryptCostN     = 8
 	oldScryptCostP     = 1
 	oldScryptKeyLen    = 32
-	oldScryptSaltLen   = 16
+	//oldScryptSaltLen   = 16
 
 	// we increase scrypt params for configuration purposes
 	scryptCostParam = 65536
 	scryptCostN     = 16
 	scryptCostP     = 4
-	scryptSaltLen   = 32
+	//scryptSaltLen   = 32
 	//scryptSaltLen   = 16
 
 	// our argon 2 parameters (we are in 2018)
 	argonCostTime   = 2
 	argonCostMemory = 256 * 1024
 	argonCostThread = 8
-	keyLength       = 32
+
+	// generic
+	keyLength     = 32
+	SaltLength    = 32
+	OldSaltLength = 16
 
 	// we use argon 2id by default
 	DerivateScrypt = iota
@@ -50,6 +55,8 @@ const (
 var (
 	ErrUnsupported = errors.New("unsupported option")
 	ErrUnsafe      = errors.New("unsafe option")
+	ErrRead        = errors.New("read error")
+	ErrWrite       = errors.New("write error")
 )
 
 type ScryptParams struct {
@@ -84,6 +91,7 @@ func (c *NaclPipe) initialize(d int) {
 	c.cntNonce = new([24]byte)
 	c.dKey = new([32]byte)
 	c.cnt = 0
+	c.salt = make([]byte, SaltLength)
 
 	switch d {
 	case DerivateScrypt010:
@@ -91,15 +99,16 @@ func (c *NaclPipe) initialize(d int) {
 			CostParam: oldScryptCostParam,
 			CostN:     oldScryptCostN,
 			CostP:     oldScryptCostP,
-			SaltLen:   oldScryptSaltLen,
+			SaltLen:   OldSaltLength,
 			KeyLength: keyLength,
 		}
+		c.salt = make([]byte, OldSaltLength)
 	case DerivateScrypt:
 		c.params = ScryptParams{
 			CostParam: scryptCostParam,
 			CostN:     scryptCostN,
 			CostP:     scryptCostP,
-			SaltLen:   scryptSaltLen,
+			SaltLen:   SaltLength,
 			KeyLength: keyLength,
 		}
 	case DerivateArgon2id:
@@ -186,17 +195,17 @@ func (c *NaclPipe) shazam() {
 //
 //
 
-func (c *NaclPipe) initReader(r io.Reader, strKey string) (err error) {
-	c.salt = make([]byte, scryptSaltLen)
+func (c *NaclPipe) initReader(r io.Reader, password string) (err error) {
+	//c.salt = make([]byte, SaltLength)
 
 	// we read the salt immediately
 	_, err = r.Read(c.salt)
 	if err != nil {
-		return err
+		return
 	}
 
 	/* let's derive a key */
-	err = c.deriveKey(c.salt, strKey)
+	err = c.deriveKey(c.salt, password)
 	if err != nil {
 		return
 	}
@@ -204,27 +213,28 @@ func (c *NaclPipe) initReader(r io.Reader, strKey string) (err error) {
 	return
 }
 
-func NewReader(r io.Reader, strKey string, derivation int) (io.Reader, error) {
+func NewReader(r io.Reader, password string, derivation int) (io.Reader, error) {
 	//npLog.Printf(1, "CALL NewReader(%p, [%s])\n", r, strKey)
-	return newCryptoReader(r, strKey, derivation)
+	return newCryptoReader(r, password, derivation)
 }
 
-func newCryptoReader(r io.Reader, strKey string, derivation int) (c *NaclPipe, err error) {
+//func newCryptoReader(r io.Reader, strKey string, derivation int) (c *NaclPipe, err error) {
+func newCryptoReader(r io.Reader, password string, derivation int) (io.Reader, error) {
 	//npLog.Printf(1, "CALL newCryptoReader(%p, [%s])\n", r, strKey)
 	//salt := make([]byte, 16)
-	c = new(NaclPipe)
+	c := new(NaclPipe)
 
-	/* init values */
+	/* init values/vars */
 	c.initialize(derivation)
 
 	/* let's derive a key */
-	err = c.initReader(r, strKey)
+	err := c.initReader(r, password)
 	if err != nil {
 		//npLog.Printf(1, "RET newCryptoReader(%p, [%s]) -> [Error:%s]\n", r, strKey, err.Error())
 		return nil, err
 	}
 	//npLog.Printf(1, "RET newCryptoReader(%p, [%s]) -> [c:%p]\n", r, strKey, c)
-	return
+	return c, nil
 }
 
 // Read will read the amount of
@@ -253,7 +263,7 @@ func (c *NaclPipe) Read(p []byte) (n int, err error) {
 		return len(pt), nil
 	}
 	//npLog.Printf(1, "RET (c:%p) Read(%p (%d)) -> [Error:crypto error]\n", c, p, cap(p), err.Error)
-	return 0, errors.New("secretbox.Open() error")
+	return 0, ErrRead
 }
 
 //
@@ -264,12 +274,14 @@ func (c *NaclPipe) Read(p []byte) (n int, err error) {
 
 func (c *NaclPipe) writeSalt() (err error) {
 	//npLog.Printf(1, "CALL (c:%p) WriteSalt(%p (%d))\n", c, c.salt, len(c.salt))
-	_, err = c.wr.Write(c.salt)
+	n, err := c.wr.Write(c.salt)
+	fmt.Printf("writeSalt(salt: %d bytes): n: %d err: %v\n", len(c.salt), n, err)
 	return
 }
 
-func (c *NaclPipe) initWriter(w io.Writer, strKey string) (err error) {
-	c.salt = make([]byte, scryptSaltLen)
+func (c *NaclPipe) initWriter(w io.Writer, password string) (err error) {
+	//c.salt = make([]byte, scryptSaltLen)
+
 	// initialize a CSPRNG salt
 	_, err = rand.Read(c.salt)
 	if err != nil {
@@ -277,7 +289,7 @@ func (c *NaclPipe) initWriter(w io.Writer, strKey string) (err error) {
 	}
 
 	/* let's derive a key */
-	err = c.deriveKey(c.salt, strKey)
+	err = c.deriveKey(c.salt, password)
 	if err != nil {
 		return
 	}
@@ -286,28 +298,29 @@ func (c *NaclPipe) initWriter(w io.Writer, strKey string) (err error) {
 	return
 }
 
-func NewWriter(w io.Writer, strKey string, derivation int) (io.Writer, error) {
+func NewWriter(w io.Writer, password string, derivation int) (io.Writer, error) {
 	//npLog.Printf(1, "CALL NewWriter(%p, [%s])\n", w, strKey)
-	return newCryptoWriter(w, strKey, derivation)
+	return newCryptoWriter(w, password, derivation)
 }
 
-func newCryptoWriter(w io.Writer, strKey string, derivation int) (c *NaclPipe, err error) {
+//func newCryptoWriter(w io.Writer, strKey string, derivation int) (c *NaclPipe, err error) {
+func newCryptoWriter(w io.Writer, password string, derivation int) (io.Writer, error) {
 	//npLog.Printf(1, "CALL newCryptoWriter(%p, [%s])\n", w, strKey)
 	//salt := make([]byte, 16)
-	c = new(NaclPipe)
+	c := new(NaclPipe)
 
-	/* init values */
+	/* init values/vars */
 	c.initialize(derivation)
 
 	/* let's derive a key */
-	err = c.initWriter(w, strKey)
+	err := c.initWriter(w, password)
 	if err != nil {
 		//npLog.Printf(1, "RET newCryptoWriter(%p, [%s]) -> [Error: %s]\n", w, strKey, err.Error)
 		return nil, err
 	}
 
 	//npLog.Printf(1, "RET newCryptoWriter(%p, [%s]) -> [c:%p]\n", w, strKey, c)
-	return
+	return c, nil
 }
 
 // SHA3 the counter use it as nonce
@@ -317,7 +330,9 @@ func (c *NaclPipe) Write(p []byte) (n int, err error) {
 	c.shazam()
 
 	if c.cnt == 0 {
-		err = c.writeSalt()
+		n, err = c.wr.Write(c.salt)
+		//fmt.Printf("writeSalt(salt: %d bytes): n: %d err: %v\n", len(c.salt), n, err)
+		//err = c.writeSalt()
 		if err != nil {
 			return
 		}
@@ -329,6 +344,10 @@ func (c *NaclPipe) Write(p []byte) (n int, err error) {
 
 	// now Write()
 	n, err = c.wr.Write(ct)
+	if err != nil || n != len(ct) {
+		fmt.Fprintf(os.Stderr, "we should write %d but wrote %d\n", len(ct), n)
+	}
 	//npLog.Printf(1, "RET (c:%p) Write(%p (%d)) -> %d, %v\n", c, p, len(p), n, err)
+	n = len(p)
 	return
 }
