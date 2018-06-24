@@ -4,7 +4,7 @@ NaCL Pipe Go Package
 ## Purpose
 A simple Go package providing an io.Reader/io.Writer interface with an NaCL (pronounced 'Salt') crypto backend.
 
-*[np](https://www.github.com/unix4fun/naclpipe/tree/master/cmd/np)* is the previously called naclpipe tool using this Go package.
+  * [np](https://www.github.com/unix4fun/naclpipe/tree/master/cmd/np)* is the previously called naclpipe tool using this Go package.
 
 
 ## ChangeLog
@@ -23,22 +23,34 @@ A simple Go package providing an io.Reader/io.Writer interface with an NaCL (pro
   * better handling of pipe input.
   * the structure has changed as the CSPRNG'ed salt is prefixed to the series of blocks
 
-## Package Usage 
+## Package Example Usage 
 
     import "github.com/unix4fun/naclpipe"
 
+    // block size can be arbitrary, we read in block of datas
+    block := make([]byte, 8192)
+
+    // initilize my reader from stdin
     cryptoReader, err := naclpipe.NewReader(os.Stdin, "mysuperduperpassword", naclpipe.DerivateArgon2id)
+    if err != nil {
+        log.Fatalf("naclpipe error")
+    }
+
+    // read & decipher in block
+    _, err := cryptoReader.Read(b)
 
 ## Package Usage Example / Tool
-Please see *[np](https://www.github.com/unix4fun/naclpipe/tree/master/cmd/np)*.
+
+see *[np](https://www.github.com/unix4fun/naclpipe/tree/master/cmd/np)*.
 
 ## Package Doc
-TODO
+
+  * [godoc] (https://godoc.org/github.com/unix4fun/naclpipe)
 
 ## Featuring (because there is always a star in your production..)
 
-* [NaCL ECC 25519](http://nacl.cr.yp.to/install.html) box/secretbox [Go implementation](https://godoc.org/golang.org/x/crypto/nacl) with AEAD
-(using Salsa20 w/ Poly1305 MAC)
-* [Scrypt](http://en.wikipedia.org/wiki/Scrypt) for key stretching
-* [SHA-3](http://en.wikipedia.org/wiki/SHA-3) for NONCE generation
-* [Go](http://golang.org) because I like trying something new and promising.
+  * [NaCL ECC 25519] (http://nacl.cr.yp.to/install.html) box/secretbox [Go implementation](https://godoc.org/golang.org/x/crypto/nacl) AEAD using Salsa20 w/ Poly1305 MAC
+  * [Argon2] (https://en.wikipedia.org/wiki/Argon2) for today key stretching.
+  * [Scrypt](http://en.wikipedia.org/wiki/Scrypt) for key stretching.
+  * [SHA-3](http://en.wikipedia.org/wiki/SHA-3) for NONCE generation.
+  * [Go] (http://golang.org) because it works.
