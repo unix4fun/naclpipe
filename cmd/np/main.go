@@ -20,6 +20,8 @@ const (
 	defaultInsecureHardcodedKeyForLazyFolks = "n4clp1pebleh!"
 	defaultBufferSize                       = 4194304 // 4M
 	Version                                 = "0.2.0"
+	EnvAlg                                  = "NPALG"
+	EnvKey                                  = "NPKEY"
 )
 
 var npLog *DebugLog
@@ -42,19 +44,25 @@ func usage() {
 }
 
 func main() {
-
 	// setup basic usage messages */
 	flag.Usage = usage
 
 	/* default is encrypt */
 	/* decrypt if necessary */
 	decFlag := flag.Bool("d", false, "decrypt")
-	// algorithm
-	algFlag := flag.Bool("o", false, "use (old?) scrypt")
-	//dbgFlag := flag.Bool("v", false, "verbose log")
-	hlpFlag := flag.Bool("h", false, "help")
+
+	// algorithm, unknown == argon2id
+	algFlag := flag.String("a", "argon", "old|scrypt|argon")
+
+	// buffer size
+	szFlag := flag.Int("s", defaultBufferSize, "buffer size")
+
 	/* key to provide */
 	keyFlag := flag.String("k", defaultInsecureHardcodedKeyForLazyFolks, "key value")
+
+	//dbgFlag := flag.Bool("v", false, "verbose log")
+	hlpFlag := flag.Bool("h", false, "help")
+
 	//verbFlag := flag.Int("v", 0, "verbosity level")
 
 	flag.Parse()
@@ -64,21 +72,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	// password
+	password := *keyFlag
+	alg := *algFlag
+	bufSize := *szFlag
+
+	keyEnv := os.Getenv(EnvKey)
+	keyDerivationAlgEnv := os.Getenv(EnvAlg)
+
+	if len(keyEnv) > 0 {
+		password = keyEnv
+	}
+
+	if len(keyDerivationAlgEnv) > 0 {
+		alg = keyDerivationAlgEnv
+	}
+
 	// derivation..
 	derivation := naclpipe.DerivateArgon2id
-	if *algFlag == true {
+	switch alg {
+	case "old":
+		derivation = naclpipe.DerivateScrypt010
+	case "scrypt":
 		derivation = naclpipe.DerivateScrypt
 	}
+
+	fmt.Fprintf(os.Stderr, "DERIVATION: %d/%s\n", derivation, alg)
+	fmt.Fprintf(os.Stderr, "KEY: %s\n", password)
 
 	// set the log level default is 0
 	//npLog.Set(*verbFlag)
 
-	fmt.Fprintf(os.Stderr, "KEY: %s\n", *keyFlag)
-	buf := make([]byte, defaultBufferSize)
+	// we define env variables to supersede command line params
+	// for repetitive operation
+
+	buf := make([]byte, bufSize)
 	switch *decFlag {
 	case true:
 		// Decrypt
-		crd, err := naclpipe.NewReader(os.Stdin, *keyFlag, derivation)
+		crd, err := naclpipe.NewReader(os.Stdin, password, derivation)
 		if err != nil {
 			panic(err)
 		}
@@ -103,7 +135,7 @@ func main() {
 
 	default:
 		// Encrypt
-		cwr, err := naclpipe.NewWriter(os.Stdout, *keyFlag, derivation)
+		cwr, err := naclpipe.NewWriter(os.Stdout, password, derivation)
 		if err != nil {
 			panic(err)
 		}
