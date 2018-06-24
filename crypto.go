@@ -1,5 +1,35 @@
 // +build go1.10
 
+// Copyright 2016-2018 (c) Eric "eau" Augé <eau+naclpipe@unix4fun.net>
+//
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this
+// list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice,
+// this list of conditions and the following disclaimer in the documentation and/or
+// other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors
+// may be used to endorse or promote products derived from this software without
+// specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+// ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+// ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+// Package naclpipe provides io.Reader / io.Writer compatible crypto interface
+// it is possible to create a transparent crypto interface on top of an
+// io.Reader/io.Writer pattern.
 package naclpipe
 
 import (
@@ -53,12 +83,17 @@ const (
 )
 
 var (
+	// ErrUnsupported triggers for using an unsupported derivation function.
 	ErrUnsupported = errors.New("unsupported option")
-	ErrUnsafe      = errors.New("unsafe option")
-	ErrRead        = errors.New("read error")
-	ErrWrite       = errors.New("write error")
+	// ErrUnsafe triggers for unsafe key derivation function.
+	ErrUnsafe = errors.New("unsafe option")
+	// ErrRead triggers on an error from the underlying io.Reader
+	ErrRead = errors.New("read error")
+	// ErrWrite triggers on an error from the underlying io.Writer
+	ErrWrite = errors.New("write error")
 )
 
+// ScryptParams describes the parameters used for calling the scrypt key derivation function.
 type ScryptParams struct {
 	CostParam int
 	CostN     int
@@ -67,6 +102,7 @@ type ScryptParams struct {
 	KeyLength int
 }
 
+// Argon2Params describes the parameters used for calling the Argon2id key derivation function.
 type Argon2Params struct {
 	CostTime    uint32
 	CostMemory  uint32
@@ -87,6 +123,7 @@ type NaclPipe struct {
 	//stdioSize uint32
 }
 
+// initialize the params
 func (c *NaclPipe) initialize(d int) {
 	c.cntNonce = new([24]byte)
 	c.dKey = new([32]byte)
@@ -123,18 +160,11 @@ func (c *NaclPipe) initialize(d int) {
 	}
 }
 
-// minimum password is 5 chars
+// key derivation wrapper call
 func (c *NaclPipe) deriveKey(salt []byte, password string) (err error) {
 	var dKey []byte
 
-	// XXX TODO check salt is NOT all zero print a warning
-	/*
-		if len(password) < 5 || len(salt) < 12 {
-			//fmt.Printf("password: %d salt: %d\n", len(password), len(salt))
-			err = errUnsafe
-			return
-		}
-	*/
+	// check salt is NOT all zero print a warning
 	zero := make([]byte, len(salt))
 
 	switch {
@@ -168,15 +198,6 @@ func (c *NaclPipe) deriveKey(salt []byte, password string) (err error) {
 
 	copy(c.dKey[:], dKey)
 	return
-}
-
-func (c *NaclPipe) GetBufSize(size uint64) uint64 {
-	switch {
-	case c.wr != nil:
-		return (size - secretbox.Overhead)
-	default:
-		return size
-	}
 }
 
 // shazam function does an SHA3 on the counter and update the counter/Nonce value generated.
@@ -213,6 +234,12 @@ func (c *NaclPipe) initReader(r io.Reader, password string) (err error) {
 	return
 }
 
+// NewReader initialize an io.Reader using 'password' and the selected derivation function.
+// Example:
+//	cryptoReader, err := naclpipe.NewReader(os.Stdin, "mypassword", naclpipe.DerivateScrypt)
+//	if err != nil {
+//		return err
+//	}
 func NewReader(r io.Reader, password string, derivation int) (io.Reader, error) {
 	//npLog.Printf(1, "CALL NewReader(%p, [%s])\n", r, strKey)
 	return newCryptoReader(r, password, derivation)
@@ -298,6 +325,12 @@ func (c *NaclPipe) initWriter(w io.Writer, password string) (err error) {
 	return
 }
 
+// NewWriter initialize an io.Writer using 'password' and the selected derivation function.
+// Example:
+//	cryptoWriter, err := naclpipe.NewWriter(os.Stdout, "mypassword", naclpipe.DerivateScrypt)
+//	if err != nil {
+//		return err
+//	}
 func NewWriter(w io.Writer, password string, derivation int) (io.Writer, error) {
 	//npLog.Printf(1, "CALL NewWriter(%p, [%s])\n", w, strKey)
 	return newCryptoWriter(w, password, derivation)
@@ -345,7 +378,7 @@ func (c *NaclPipe) Write(p []byte) (n int, err error) {
 	// now Write()
 	n, err = c.wr.Write(ct)
 	if err != nil || n != len(ct) {
-		fmt.Fprintf(os.Stderr, "we should write %d but wrote %d\n", len(ct), n)
+		fmt.Fprintf(os.Stderr, "we should write %d but wrote %d (err:%v)\n", len(ct), n, err)
 	}
 	//npLog.Printf(1, "RET (c:%p) Write(%p (%d)) -> %d, %v\n", c, p, len(p), n, err)
 	n = len(p)

@@ -1,8 +1,9 @@
 // +build go1.7
 
+// Copyright 2016-2018 (c) Eric "eau" Augé <eau+naclpipe@unix4fun.net>
+
 // naclpipe a simple (lame?) encryption pipe
 // quickly made to understand interface / io.Reader / io.Writer
-// Copyright (c) eau <eau+naclpipe@unix4fun.net>
 package main
 
 import (
@@ -32,7 +33,7 @@ func init() {
 
 // banner is just a banner function.
 func banner(cmd string) {
-	fmt.Fprintf(os.Stderr, "Nacl Pipe v%s¦ a simple encryption pipe\n", Version)
+	fmt.Fprintf(os.Stderr, "(N)acl (P)ipe v%s¦ a simple encryption pipe\n", Version)
 	fmt.Fprintf(os.Stderr, "using naclpipe %v library\n", naclpipe.Version)
 }
 
@@ -40,6 +41,11 @@ func banner(cmd string) {
 func usage() {
 	banner(os.Args[0])
 	fmt.Printf("%s [options]\n", os.Args[0])
+	fmt.Printf("--\n")
+	fmt.Printf("[environment variables]\n")
+	fmt.Printf("NPKEY: (same as -k)\n")
+	fmt.Printf("NPALG: (same as -a)\n")
+	fmt.Printf("--\n")
 	flag.PrintDefaults()
 }
 
