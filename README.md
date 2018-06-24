@@ -45,12 +45,12 @@ see *[np](https://www.github.com/unix4fun/naclpipe/tree/master/cmd/np)*.
 
 ## Package Doc
 
-  * [godoc] (https://godoc.org/github.com/unix4fun/naclpipe)
+  * [godoc](https://godoc.org/github.com/unix4fun/naclpipe)
 
 ## Featuring (because there is always a star in your production..)
 
-* [NaCL ECC 25519] (http://nacl.cr.yp.to/install.html) box/secretbox [Go implementation](https://godoc.org/golang.org/x/crypto/nacl) AEAD using Salsa20 w/ Poly1305 MAC
-* [Argon2] (https://en.wikipedia.org/wiki/Argon2) for today key stretching.
+* [NaCL ECC 25519](http://nacl.cr.yp.to/install.html) box/secretbox [Go implementation](https://godoc.org/golang.org/x/crypto/nacl) AEAD using Salsa20 w/ Poly1305 MAC
+* [Argon2](https://en.wikipedia.org/wiki/Argon2) for today key stretching.
 * [Scrypt](http://en.wikipedia.org/wiki/Scrypt) for key stretching.
 * [SHA-3](http://en.wikipedia.org/wiki/SHA-3) for NONCE generation.
 * [Go](http://golang.org) because it works.

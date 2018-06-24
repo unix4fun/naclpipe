@@ -21,10 +21,9 @@
 
 ## Requirements / Featuring (because there is always a star in your production..)
 
-* [NaCL ECC 25519] (http://nacl.cr.yp.to/install.html) box/secretbox [Go implementation](https://godoc.org/golang.org/x/crypto/nacl) AEAD using Salsa20 w/ Poly1305 MAC
-* [Scrypt] (http://en.wikipedia.org/wiki/Scrypt) for key stretching
-* [Argon2] (https://en.wikipedia.org/wiki/Argon2) for today key stretching
-* [SHA-3] (http://en.wikipedia.org/wiki/SHA-3) 256 for NONCE generation
-* [Go] (http://golang.org) because it works.
-
+* [NaCL ECC 25519](http://nacl.cr.yp.to/install.html) box/secretbox [Go implementation](https://godoc.org/golang.org/x/crypto/nacl) AEAD using Salsa20 w/ Poly1305 MAC
+* [Scrypt](http://en.wikipedia.org/wiki/Scrypt) for key stretching
+* [Argon2](https://en.wikipedia.org/wiki/Argon2) for today key stretching
+* [SHA-3](http://en.wikipedia.org/wiki/SHA-3) 256 for NONCE generation
+* [Go](http://golang.org) because it works.
 
