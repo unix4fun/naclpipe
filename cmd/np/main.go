@@ -20,7 +20,7 @@ const (
 	// default Key (insecure obviously..)
 	defaultInsecureHardcodedKeyForLazyFolks = "n4clp1pebleh!"
 	defaultBufferSize                       = 4194304 // 4M
-	Version                                 = "0.2.0"
+	Version                                 = "0.2.1"
 	EnvAlg                                  = "NPALG"
 	EnvKey                                  = "NPKEY"
 )
@@ -103,8 +103,10 @@ func main() {
 		derivation = naclpipe.DerivateScrypt
 	}
 
-	fmt.Fprintf(os.Stderr, "DERIVATION: %d/%s\n", derivation, alg)
-	fmt.Fprintf(os.Stderr, "KEY: %s\n", password)
+	/*
+		fmt.Fprintf(os.Stderr, "DERIVATION: %d/%s\n", derivation, alg)
+		fmt.Fprintf(os.Stderr, "KEY: %s\n", password)
+	*/
 
 	// set the log level default is 0
 	//npLog.Set(*verbFlag)
