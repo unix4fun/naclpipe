@@ -20,7 +20,7 @@ const (
 	// default Key (insecure obviously..)
 	defaultInsecureHardcodedKeyForLazyFolks = "n4clp1pebleh!"
 	defaultBufferSize                       = 4194304 // 4M
-	Version                                 = "0.2.1"
+	Version                                 = "0.2.1-dev"
 	EnvAlg                                  = "NPALG"
 	EnvKey                                  = "NPKEY"
 )
