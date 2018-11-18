@@ -8,6 +8,9 @@ A simple experimental Go package providing an io.Reader/io.Writer interface with
 
 
 ## ChangeLog
+* 2018-11-17
+  * remove old unsafe backware compatibility code.
+  * tagged 0.2.0
 * 2018-06-24
   * added argon2id key derivation function.
   * upgraded the key derivation function and the parameters to a 2018 flavor.

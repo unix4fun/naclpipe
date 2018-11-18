@@ -89,14 +89,16 @@ func TestNaclpipeInitialize(t *testing.T) {
 	}
 
 	// scrypt new derivation
-	c.initialize(DerivateScrypt010)
+	/*
+		c.initialize(DerivateScrypt010)
 
-	switch v := c.params.(type) {
-	case ScryptParams:
-		// all good
-	default:
-		t.Errorf("wrong expected Scrypt010(%d) vs %T", DerivateScrypt010, v)
-	}
+		switch v := c.params.(type) {
+		case ScryptParams:
+			// all good
+		default:
+			t.Errorf("wrong expected Scrypt010(%d) vs %T", DerivateScrypt010, v)
+		}
+	*/
 
 }
 
@@ -396,6 +398,7 @@ func TestNewReaderValidDerivationArgon(t *testing.T) {
 
 }
 
+/*
 func TestNewReaderValidDerivationScrypt010(t *testing.T) {
 	cr, err := NewReader(rand.Reader, "password", DerivateScrypt010)
 	switch err {
@@ -419,6 +422,7 @@ func TestNewReaderValidDerivationScrypt010(t *testing.T) {
 	}
 
 }
+*/
 
 /*
  *

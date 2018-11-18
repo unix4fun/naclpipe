@@ -20,16 +20,10 @@ const (
 	// default Key (insecure obviously..)
 	defaultInsecureHardcodedKeyForLazyFolks = "n4clp1pebleh!"
 	defaultBufferSize                       = 4194304 // 4M
-	Version                                 = "0.2.1"
+	Version                                 = "0.2.1-dev"
 	EnvAlg                                  = "NPALG"
 	EnvKey                                  = "NPKEY"
 )
-
-var npLog *DebugLog
-
-func init() {
-	npLog = NewDebugLog(os.Stderr, "<naclpipe> ")
-}
 
 // banner is just a banner function.
 func banner(cmd string) {
@@ -58,7 +52,7 @@ func main() {
 	decFlag := flag.Bool("d", false, "decrypt")
 
 	// algorithm, unknown == argon2id
-	algFlag := flag.String("a", "argon", "old|scrypt|argon")
+	algFlag := flag.String("a", "argon", "scrypt|argon")
 
 	// buffer size
 	szFlag := flag.Int("s", defaultBufferSize, "buffer size")
@@ -68,8 +62,6 @@ func main() {
 
 	//dbgFlag := flag.Bool("v", false, "verbose log")
 	hlpFlag := flag.Bool("h", false, "help")
-
-	//verbFlag := flag.Int("v", 0, "verbosity level")
 
 	flag.Parse()
 
@@ -83,6 +75,7 @@ func main() {
 	alg := *algFlag
 	bufSize := *szFlag
 
+	// get from the environment
 	keyEnv := os.Getenv(EnvKey)
 	keyDerivationAlgEnv := os.Getenv(EnvAlg)
 
@@ -96,20 +89,9 @@ func main() {
 
 	// derivation..
 	derivation := naclpipe.DerivateArgon2id
-	switch alg {
-	case "old":
-		derivation = naclpipe.DerivateScrypt010
-	case "scrypt":
+	if alg == "scrypt" {
 		derivation = naclpipe.DerivateScrypt
 	}
-
-	/*
-		fmt.Fprintf(os.Stderr, "DERIVATION: %d/%s\n", derivation, alg)
-		fmt.Fprintf(os.Stderr, "KEY: %s\n", password)
-	*/
-
-	// set the log level default is 0
-	//npLog.Set(*verbFlag)
 
 	// we define env variables to supersede command line params
 	// for repetitive operation
